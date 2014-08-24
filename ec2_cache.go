@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/mitchellh/goamz/aws"
 	"github.com/mitchellh/goamz/ec2"
 	"log"
 	"net"
@@ -17,9 +19,9 @@ const TTL = 5 * time.Minute
 type LookupTag uint8
 
 const (
-	// tag:Name=<value>
+	// LOOKUP_NAME for when tag:Name=<value>
 	LOOKUP_NAME LookupTag = iota
-	// tag:Role=<value>
+	// LOOKUP_ROLE for when tag:Role=<value>
 	LOOKUP_ROLE
 )
 
@@ -31,6 +33,7 @@ type Key struct {
 
 // Record represents the DNS record for one EC2 instance.
 type Record struct {
+	CName      string
 	PublicIP   net.IP
 	PrivateIP  net.IP
 	ValidUntil time.Time
@@ -39,31 +42,44 @@ type Record struct {
 // EC2Cache maintains a local cache of ec2-describe-instances data.
 // It refreshes every TTL.
 type EC2Cache struct {
-	*ec2.EC2
-	records    map[Key][]*Record
-	InProgress map[Key]time.Time
-	mutex      sync.Mutex
+	region    aws.Region
+	accessKey string
+	secretKey string
+	records   map[Key][]*Record
+	mutex     sync.Mutex
 }
 
 // NewEC2Cache creates a new EC2Cache that uses the provided
 // EC2 client to lookup instances. It starts a goroutine that
 // keeps the cache up-to-date.
-func NewEC2Cache(cli *ec2.EC2) *EC2Cache {
+func NewEC2Cache(regionName, accessKey, secretKey string) (*EC2Cache, error) {
+
+	region, ok := aws.Regions[regionName]
+	if !ok {
+		return nil, fmt.Errorf("unknown AWS region: %s", regionName)
+	}
+
 	cache := &EC2Cache{
-		cli,
-		make(map[Key][]*Record),
-		make(map[Key]time.Time),
-		sync.Mutex{},
+		region:    region,
+		accessKey: accessKey,
+		secretKey: secretKey,
+		records:   make(map[Key][]*Record),
+	}
+
+	if err := cache.refresh(); err != nil {
+		return nil, err
 	}
 
 	go func() {
-		for {
-			cache.refresh()
-			time.Sleep(TTL)
+		for _ = range time.Tick(TTL) {
+			err := cache.refresh()
+			if err != nil {
+				log.Println("Error: " + err.Error())
+			}
 		}
 	}()
 
-	return cache
+	return cache, nil
 }
 
 // Records contains all the Records for instances in this EC2 region.
@@ -80,13 +96,21 @@ func (cache *EC2Cache) setRecords(records map[Key][]*Record) {
 	cache.records = records
 }
 
-func (cache *EC2Cache) refresh() {
-	result, err := cache.Instances(nil, nil)
+func (cache *EC2Cache) Instances() (*ec2.InstancesResp, error) {
+	auth, err := aws.GetAuth(cache.accessKey, cache.secretKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return ec2.New(auth, cache.region).Instances(nil, nil)
+}
+
+func (cache *EC2Cache) refresh() error {
+	result, err := cache.Instances()
 	validUntil := time.Now().Add(TTL)
 
 	if err != nil {
-		log.Println("Error: " + err.Error())
-		return
+		return err
 	}
 
 	records := make(map[Key][]*Record)
@@ -102,6 +126,9 @@ func (cache *EC2Cache) refresh() {
 			if instance.PrivateIpAddress != "" {
 				record.PrivateIP = net.ParseIP(instance.PrivateIpAddress)
 			}
+			if instance.DNSName != "" {
+				record.CName = instance.DNSName + "."
+			}
 			record.ValidUntil = validUntil
 			for _, tag := range instance.Tags {
 				if tag.Key == "Name" {
@@ -115,6 +142,7 @@ func (cache *EC2Cache) refresh() {
 	}
 	log.Printf("INFO: loaded records for %d instances", count)
 	cache.setRecords(records)
+	return nil
 }
 
 // Lookup a node in the Cache either by Name or Role.

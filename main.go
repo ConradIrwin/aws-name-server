@@ -3,18 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/miekg/dns"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/ec2"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
 const USAGE = `Usage: aws-name-server --domain <domain>
-                     [ --aws-access-key <access-key>
+                     [ --aws-region us-east-1
+					   --aws-access-key <access-key>
                        --aws-secret-key <secret-key> ]
 
 aws-name-server --domain internal.example.com will serve DNS requests for:
@@ -23,9 +23,6 @@ aws-name-server --domain internal.example.com will serve DNS requests for:
  <role>.role.internal.example.com     — all ec2 instances tagged with Role=<role>
  <n>.<name>.internal.example.com      — <n>th instance tagged with Name=<name>
  <n>.<role>.role.internal.example.com — <n>th instance tagged with Role=<role>
-
-These records are fetched from the EC2 API. The easiest way to configure your EC2 keys is
-to export $AWS_ACCESS_KEY and $AWS_SECRET_KEY, with permission to run DescribeInstances.
 
 For more details see https://github.com/ConradIrwin/aws-name-server`
 
@@ -45,8 +42,9 @@ func main() {
 	domain := flag.String("domain", "", "the domain heirarchy to serve (e.g. internal.bugsnag.com)")
 	help := flag.Bool("help", false, "show help")
 
-	access_key := flag.String("aws-access-key-id", "", "The AWS Access Key Id")
-	secret_key := flag.String("aws-secret-access-key", "", "The AWS Secret Key")
+	region := flag.String("aws-region", "us-east-1", "The AWS Region")
+	accessKey := flag.String("aws-access-key-id", "", "The AWS Access Key Id")
+	secretKey := flag.String("aws-secret-access-key", "", "The AWS Secret Key")
 
 	flag.Parse()
 
@@ -58,12 +56,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	auth, err := aws.GetAuth(*access_key, *secret_key)
+	cache, err := NewEC2Cache(*region, *accessKey, *secretKey)
 	if err != nil {
-		panic(err)
+		log.Fatalf("FATAL: %s", err)
 	}
-
-	cache := NewEC2Cache(ec2.New(auth, aws.USEast))
 
 	suffix := "." + *domain + "."
 
@@ -100,7 +96,7 @@ func handleDNSRequest(w dns.ResponseWriter, request *dns.Msg, cache *EC2Cache, s
 			continue
 		}
 
-		if msg.Qtype != dns.TypeA {
+		if msg.Qtype != dns.TypeA || msg.Qtype != dns.TypeCNAME {
 			continue
 		}
 
@@ -143,15 +139,21 @@ func handleDNSRequest(w dns.ResponseWriter, request *dns.Msg, cache *EC2Cache, s
 		for _, record := range results {
 			ttl := uint32(record.TTL(time.Now()) / time.Second)
 
-			if strings.HasPrefix(w.RemoteAddr().String(), "10.") || strings.HasPrefix(w.RemoteAddr().String(), "127.0") {
+			if record.CName != "" {
+				response.Answer = append(response.Answer, &dns.CNAME{
+					Hdr:    dns.RR_Header{Name: msg.Name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl},
+					Target: record.CName,
+				})
+
+			} else if record.PublicIP != nil {
 				response.Answer = append(response.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: msg.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
-					A:   record.PrivateIP,
+					A:   record.PublicIP,
 				})
 			} else {
 				response.Answer = append(response.Answer, &dns.A{
 					Hdr: dns.RR_Header{Name: msg.Name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: ttl},
-					A:   record.PublicIP,
+					A:   record.PrivateIP,
 				})
 			}
 		}
