@@ -20,8 +20,8 @@ and external IP addresses if you query from the outside.
 Quick start
 ===========
 
-There's a long-winded [Setup guide](#setup) aimed at beginners. If you already know your way around EC2,
-you'll need to:
+There's a long-winded [Setup guide](#setup), but if you already know your way
+around EC2, you'll need to:
 
 1. Open up port 53 (UDP and TCP) on your security group.
 2. Boot an instance with an IAM Role with `ec2:DescribeInstances` permission. (or use an IAM user and
@@ -171,15 +171,20 @@ Troubleshooting
 
 There's a lot that can go wrong, so troubleshooting takes a while.
 
+### Did it start?
+
+First try looking in the logs (`/var/log/upstart/aws-name-server.log` if you're
+using upstart). If there's nothing there, then try `/var/log/syslog`.
+
 ### Is it running?
-Try running `dig dns1.aws.example.com @localhost` while ssh'd into the machine. It should
-return a `CNAME` record. If not, look in the logs, the chances are the DNS server is not running.
-This happens if your EC2 credentials are wrong.
+Try running `dig dns1.aws.example.com @localhost` while ssh'd into the machine.
+It should return a `CNAME` record. If not, look in the logs, the chances are
+the DNS server is not running.  This happens if your EC2 credentials are wrong.
 
 ### Is the security group configured correctly?
-Assuming you can make DNS lookups to localhost, try running `dig
-dns1.aws.example.com @ec2-12-34-56-78.compute-1.amazonaws.com` from your laptop. If you don't
-get a reply, double check the security group config.
+Assuming you can make DNS lookups to localhost, try running
+`dig dns1.aws.example.com @ec2-12-34-56-78.compute-1.amazonaws.com` from your
+laptop. If you don't get a reply, double check the security group config.
 
 ### Are the NS records set up correctly?
 Assuming you can make DNS lookups correctly when pointing dig at the DNS
@@ -188,6 +193,6 @@ you probably need to update your `NS` records. If you've already done this, you
 might need to wait a few minutes for caches to clear.
 
 ### Are you getting a warning about NS records in the logs but everything seems fine?
-This happens when the `--hostname` parameter has been set or auto-detected to something
-different from what you've configured the `NS` records to be. This may cause hard-to-debug
-issues, so you should set `--hostname` correctly.
+This happens when the `--hostname` parameter has been set or auto-detected to
+something different from what you've configured the `NS` records to be. This
+may cause hard-to-debug issues, so you should set `--hostname` correctly.
