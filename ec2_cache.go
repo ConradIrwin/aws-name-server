@@ -71,10 +71,10 @@ func NewEC2Cache(regionName, accessKey, secretKey string) (*EC2Cache, error) {
 	}
 
 	go func() {
-		for _ = range time.Tick(TTL) {
+		for _ = range time.Tick(1 * time.Minute) {
 			err := cache.refresh()
 			if err != nil {
-				log.Println("Error: " + err.Error())
+				log.Println("ERROR: " + err.Error())
 			}
 		}
 	}()
@@ -133,7 +133,6 @@ func (cache *EC2Cache) refresh() error {
 			}
 		}
 	}
-	log.Printf("INFO: loaded records for %d instances", count)
 	cache.setRecords(records)
 	return nil
 }
