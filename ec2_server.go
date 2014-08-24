@@ -155,7 +155,7 @@ func (s *EC2Server) Lookup(msg dns.Question) []*Record {
 
 func (s *EC2Server) SOA(msg dns.Question) dns.RR {
 	return &dns.SOA{
-		Hdr:     dns.RR_Header{Name: msg.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 60},
+		Hdr:     dns.RR_Header{Name: s.domain, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 60},
 		Ns:      s.hostname,
 		Mbox:    "me.cirw.in.",
 		Serial:  uint32(time.Now().Unix()),
