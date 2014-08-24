@@ -96,7 +96,7 @@ func handleDNSRequest(w dns.ResponseWriter, request *dns.Msg, cache *EC2Cache, s
 			continue
 		}
 
-		if msg.Qtype != dns.TypeA || msg.Qtype != dns.TypeCNAME {
+		if msg.Qtype != dns.TypeA && msg.Qtype != dns.TypeCNAME {
 			continue
 		}
 
