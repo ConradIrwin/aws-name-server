@@ -51,6 +51,7 @@ func (s *EC2Server) listenAndServe(port string, net string) {
 func (s *EC2Server) handleRequest(w dns.ResponseWriter, request *dns.Msg) {
 	r := new(dns.Msg)
 	r.SetReply(request)
+	r.Authoritative = true
 
 	for _, msg := range request.Question {
 		log.Printf("%v %#v %v (id=%v)", dns.TypeToString[msg.Qtype], msg.Name, w.RemoteAddr(), request.Id)
