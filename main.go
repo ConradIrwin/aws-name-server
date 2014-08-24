@@ -70,7 +70,7 @@ func main() {
 
 	server := NewEC2Server(*domain, *hostname, cache)
 
-	log.Printf("Serving DNS for *.%s from %s port 53", server.domain, server.hostname)
+	log.Printf("Serving %d DNS records for *.%s from %s port 53", cache.Size(), server.domain, server.hostname)
 
 	go checkNSRecordMatches(server.domain, server.hostname)
 

@@ -145,6 +145,13 @@ func (cache *EC2Cache) Lookup(tag LookupTag, value string) []*Record {
 	return cache.records[Key{tag, value}]
 }
 
+func (cache *EC2Cache) Size() int {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+
+	return len(cache.records)
+}
+
 func (record *Record) TTL(now time.Time) time.Duration {
 	if now.After(record.ValidUntil) {
 		return 10 * time.Second
