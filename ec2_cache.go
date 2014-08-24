@@ -46,7 +46,7 @@ type EC2Cache struct {
 	accessKey string
 	secretKey string
 	records   map[Key][]*Record
-	mutex     sync.Mutex
+	mutex     sync.RWMutex
 }
 
 // NewEC2Cache creates a new EC2Cache that uses the provided
@@ -80,13 +80,6 @@ func NewEC2Cache(regionName, accessKey, secretKey string) (*EC2Cache, error) {
 	}()
 
 	return cache, nil
-}
-
-// Records contains all the Records for instances in this EC2 region.
-func (cache *EC2Cache) Records() map[Key][]*Record {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	return cache.records
 }
 
 // setRecords updates the cache with a new set of Records
@@ -147,7 +140,10 @@ func (cache *EC2Cache) refresh() error {
 
 // Lookup a node in the Cache either by Name or Role.
 func (cache *EC2Cache) Lookup(tag LookupTag, value string) []*Record {
-	return cache.Records()[Key{tag, value}]
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+
+	return cache.records[Key{tag, value}]
 }
 
 func (record *Record) TTL(now time.Time) time.Duration {
