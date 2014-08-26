@@ -14,8 +14,8 @@ import (
 const USAGE = `Usage: aws-name-server --domain <domain>
                      [ --hostname <hostname>
                        --aws-region us-east-1
-                       --aws-access-key <access-key>
-                       --aws-secret-key <secret-key> ]
+                       --aws-access-key-id <access-key>
+                       --aws-secret-access-key <secret-key> ]
 
 aws-name-server --domain internal.example.com will serve DNS requests for:
 
@@ -80,7 +80,7 @@ func main() {
 
 func getHostname() chan string {
 	result := make(chan string)
-	go func () {
+	go func() {
 
 		// This can be slow on non-EC2-instances
 		if hostname, err := aws.GetMetaData("public-hostname"); err == nil {
