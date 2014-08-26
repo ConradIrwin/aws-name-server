@@ -6,6 +6,8 @@ import (
 	"github.com/mitchellh/goamz/ec2"
 	"log"
 	"net"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 )
@@ -98,6 +100,18 @@ func (cache *EC2Cache) Instances() (*ec2.InstancesResp, error) {
 	return ec2.New(auth, cache.region).Instances(nil, nil)
 }
 
+// allow _ in DNS name
+var SANE_DNS_NAME = regexp.MustCompile("^[\\w-]+$")
+var SANE_DNS_REPL = regexp.MustCompile("[^\\w-]+")
+
+func sanitize(tag string) string {
+	out := strings.ToLower(tag)
+	if SANE_DNS_NAME.MatchString(out) {
+		return out
+	}
+	return SANE_DNS_REPL.ReplaceAllString(out, "-")
+}
+
 func (cache *EC2Cache) refresh() error {
 	result, err := cache.Instances()
 	validUntil := time.Now().Add(TTL)
@@ -125,10 +139,12 @@ func (cache *EC2Cache) refresh() error {
 			record.ValidUntil = validUntil
 			for _, tag := range instance.Tags {
 				if tag.Key == "Name" {
-					records[Key{LOOKUP_NAME, tag.Value}] = append(records[Key{LOOKUP_NAME, tag.Value}], &record)
+					name := sanitize(tag.Value)
+					records[Key{LOOKUP_NAME, name}] = append(records[Key{LOOKUP_NAME, name}], &record)
 				}
 				if tag.Key == "Role" {
-					records[Key{LOOKUP_ROLE, tag.Value}] = append(records[Key{LOOKUP_ROLE, tag.Value}], &record)
+					role := sanitize(tag.Value)
+					records[Key{LOOKUP_ROLE, role}] = append(records[Key{LOOKUP_ROLE, role}], &record)
 				}
 			}
 		}

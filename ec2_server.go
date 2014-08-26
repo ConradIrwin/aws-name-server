@@ -28,9 +28,9 @@ func NewEC2Server(domain string, hostname string, cache *EC2Cache) *EC2Server {
 	}
 
 	server := &EC2Server{
-		domain: domain,
+		domain:   domain,
 		hostname: hostname,
-		cache:  cache,
+		cache:    cache,
 	}
 
 	dns.HandleFunc(server.domain, server.handleRequest)
