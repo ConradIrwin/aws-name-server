@@ -12,7 +12,7 @@ This will serve up DNS records for the following:
 * `<name>.aws.bugsnag.com` all your EC2 instances tagged with Name=&lt;name>
 * `<n>.<name>.aws.bugsnag.com` the nth instances tagged with Name=&lt;name>
 * `<role>.role.aws.bugsnag.com` all your EC2 instances tagged with Role=&lt;role>
-* `<n>.<role>.aws.bugsnag.com` the nth instances tagged with Role=&lt;role>
+* `<n>.<role>.role.aws.bugsnag.com` the nth instances tagged with Role=&lt;role>
 
 It uses CNAMEs so that instances will resolve to internal IP addresses if you query from inside AWS,
 and external IP addresses if you query from the outside.
