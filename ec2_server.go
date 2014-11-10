@@ -12,13 +12,14 @@ type EC2Server struct {
 	domain   string
 	hostname string
 	cache    *EC2Cache
+	wildcard bool
 }
 
 type response struct {
 	*dns.Msg
 }
 
-func NewEC2Server(domain string, hostname string, cache *EC2Cache) *EC2Server {
+func NewEC2Server(domain string, hostname string, cache *EC2Cache, wildcard bool) *EC2Server {
 
 	if !strings.HasSuffix(domain, ".") {
 		domain += "."
@@ -31,6 +32,7 @@ func NewEC2Server(domain string, hostname string, cache *EC2Cache) *EC2Server {
 		domain:   domain,
 		hostname: hostname,
 		cache:    cache,
+		wildcard: wildcard,
 	}
 
 	dns.HandleFunc(server.domain, server.handleRequest)
@@ -119,6 +121,10 @@ func (s *EC2Server) Lookup(msg dns.Question) []*Record {
 
 	nth := 0
 	tag := LOOKUP_NAME
+
+	if s.wildcard {
+		parts = parts[len(parts)-1:]
+	}
 
 	// handle role lookup, e.g. web.role.internal
 	if len(parts) > 1 {
