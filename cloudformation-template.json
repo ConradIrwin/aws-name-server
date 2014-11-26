@@ -1,0 +1,225 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Runs an instance of aws-name-server",
+  "Parameters": {
+    "InstanceType": {
+      "Description": "EC2 instance type",
+      "Type": "String",
+      "Default": "t2.micro"
+    },
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instances",
+      "Type": "String"
+    },
+    "Ami": {
+      "Description": "The EC2 AMI (64bit HVM-based EBS-backed Ubuntu 14.04 recommended)",
+      "Type": "String",
+      "Default": "ami-acff23c4"
+    },
+    "DnsPrefix": {
+      "Description": "Prefix for the NS record (<prefix>.<zone>)",
+      "Type": "String",
+      "Default": "aws"
+    },
+    "DnsZone": {
+      "Description": "Route53-hosted zone to use for the NS record (<prefix>.<zone>)",
+      "Type": "String"
+    },
+    "SubnetId": {
+      "Description": "The Subnet ID for the instance",
+      "Type": "String"
+    },
+    "VpcId": {
+      "Description": "VPC associated with the provided subnet",
+      "Type": "String"
+    },
+    "AdminSecurityGroup": {
+      "Description": "Existing security group that should be granted administrative access (e.g., 'sg-123456')",
+      "Type": "String"
+    },
+    "GoPackage": {
+      "Description": "The go package to build",
+      "Type": "String",
+      "Default": "github.com/ConradIrwin/aws-name-server"
+    }
+  },
+  "Resources": {
+    "Role": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "Ec2DescribeInstances",
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "ec2:DescribeInstances",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "Role"
+          }
+        ]
+      }
+    },
+    "NameServer": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "ImageId": {
+          "Ref": "Ami"
+        },
+        "IamInstanceProfile": {
+          "Ref": "InstanceProfile"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "NetworkInterfaces": [
+          {
+            "AssociatePublicIpAddress": "true",
+            "DeviceIndex": "0",
+            "SubnetId": {
+              "Ref": "SubnetId"
+            },
+            "GroupSet": [
+              {
+                "Ref": "ServerSecurityGroup"
+              },
+              {
+                "Ref": "AdminSecurityGroup"
+              }
+            ]
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash -ex\n",
+                "apt-get update\n",
+                "apt-get install -y golang git unattended-upgrades\n",
+                "# Automatic security updates\n",
+                "cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF\n",
+                "APT::Periodic::Update-Package-Lists \"1\";\n",
+                "APT::Periodic::Unattended-Upgrade \"1\";\n",
+                "EOF\n",
+                "export GOPATH=/usr/local\n",
+                "go get ", { "Ref": "GoPackage" }, "\n",
+                "setcap cap_net_bind_service=+ep /usr/local/bin/aws-name-server\n",
+                "cat << EOF > /etc/init/aws-name-server.conf\n",
+                "# upstart script for aws-name-server\n",
+                "description     \"AWS Name Server\"\n\n",
+                "start on filesystem or runlevel [2345]\n",
+                "stop on runlevel [!2345]\n\n",
+                "respawn\n",
+                "respawn limit 10 5\n",
+                "setuid nobody\n",
+                "setgid nogroup\n\n",
+                "exec /usr/local/bin/aws-name-server --domain ", { "Ref": "DnsPrefix" }, ".", { "Ref": "DnsZone" },
+                "\nEOF\n\n",
+                "initctl start aws-name-server\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "ServerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enable SSH and Registry access",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "53",
+            "ToPort": "53",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "udp",
+            "FromPort": "53",
+            "ToPort": "53",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "DnsRecord": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "HostedZoneName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "DnsZone"
+              },
+              "."
+            ]
+          ]
+        },
+        "Comment": "AWS Name Server",
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "DnsPrefix"
+              },
+              ".",
+              {
+                "Ref": "DnsZone"
+              },
+              "."
+            ]
+          ]
+        },
+        "Type": "NS",
+        "TTL": "300",
+        "ResourceRecords": [
+          {
+            "Fn::GetAtt": [
+              "NameServer",
+              "PublicDnsName"
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
