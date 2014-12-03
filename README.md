@@ -146,6 +146,7 @@ script. You'll need to change the script to reflect your hostname:
 
 1. Open upstart/aws-name-server.conf and change --domain=internal to --domain &lt;your-domain>
 2. `sudo cp upstart/aws-name-server.conf /etc/init/`
+3. `sudo initctl start aws-name-server`
 
 ### 6. Configure NS Records
 
