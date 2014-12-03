@@ -147,6 +147,10 @@ func (cache *EC2Cache) refresh() error {
 					records[Key{LOOKUP_ROLE, role}] = append(records[Key{LOOKUP_ROLE, role}], &record)
 				}
 			}
+
+			// Lookup servers by instance id
+			records[Key{LOOKUP_NAME, instance.InstanceId}] = append(records[Key{LOOKUP_NAME, instance.InstanceId}], &record)
+
 		}
 	}
 	cache.setRecords(records)
