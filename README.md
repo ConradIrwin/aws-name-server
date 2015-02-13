@@ -5,6 +5,7 @@ Usage
 
 ```
 aws-name-server --domain aws.bugsnag.com \
+                --aws-region us-east-1 \
                 --aws-access-key-id <access_key> \
                 --aws-secret-access-key <secret_key>
 ```
