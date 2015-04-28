@@ -54,7 +54,7 @@ type EC2Cache struct {
 // NewEC2Cache creates a new EC2Cache that uses the provided
 // EC2 client to lookup instances. It starts a goroutine that
 // keeps the cache up-to-date.
-func NewEC2Cache(regionName, accessKey, secretKey string) (*EC2Cache, error) {
+func NewEC2Cache(regionName, accessKey, secretKey, tagname string) (*EC2Cache, error) {
 
 	region, ok := aws.Regions[regionName]
 	if !ok {
@@ -68,13 +68,13 @@ func NewEC2Cache(regionName, accessKey, secretKey string) (*EC2Cache, error) {
 		records:   make(map[Key][]*Record),
 	}
 
-	if err := cache.refresh(); err != nil {
+	if err := cache.refresh(tagname); err != nil {
 		return nil, err
 	}
 
 	go func() {
 		for _ = range time.Tick(1 * time.Minute) {
-			err := cache.refresh()
+			err := cache.refresh(tagname)
 			if err != nil {
 				log.Println("ERROR: " + err.Error())
 			}
@@ -112,7 +112,7 @@ func sanitize(tag string) string {
 	return SANE_DNS_REPL.ReplaceAllString(out, "-")
 }
 
-func (cache *EC2Cache) refresh() error {
+func (cache *EC2Cache) refresh(tagname string) error {
 	result, err := cache.Instances()
 	validUntil := time.Now().Add(TTL)
 
@@ -138,7 +138,7 @@ func (cache *EC2Cache) refresh() error {
 			}
 			record.ValidUntil = validUntil
 			for _, tag := range instance.Tags {
-				if tag.Key == "Name" {
+				if tag.Key == tagname {
 					name := sanitize(tag.Value)
 					records[Key{LOOKUP_NAME, name}] = append(records[Key{LOOKUP_NAME, name}], &record)
 				}
