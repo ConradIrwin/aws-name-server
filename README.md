@@ -92,7 +92,7 @@ dns machine to run `ec2:DescribeInstances`.
 describe what traffic is allowed to get to your instance. DNS servers use UDP port 53 and TCP port 53.
 
 1. Log into the AWS web console and navigate to EC2.
-2. Create a new security group called *sg-aws-name-server*
+2. Create a new security group called *aws-name-server*
 3. Configure it to have:
 
     ```
