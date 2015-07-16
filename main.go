@@ -13,6 +13,7 @@ import (
 
 const USAGE = `Usage: aws-name-server --domain <domain>
                      [ --hostname <hostname>
+                       --tagname <tag>
                        --aws-region us-east-1
                        --aws-access-key-id <access-key>
                        --aws-secret-access-key <secret-key> ]
@@ -42,6 +43,7 @@ func main() {
 	domain := flag.String("domain", "", "the domain heirarchy to serve (e.g. aws.example.com)")
 	hostname := flag.String("hostname", "", "the public hostname of this server (e.g. ec2-12-34-56-78.compute-1.amazonaws.com)")
 	help := flag.Bool("help", false, "show help")
+	tagname := flag.String("tagname", "Name", "the tag to use instead of NAME")
 
 	region := flag.String("aws-region", "us-east-1", "The AWS Region")
 	accessKey := flag.String("aws-access-key-id", "", "The AWS Access Key Id")
@@ -59,7 +61,7 @@ func main() {
 
 	hostnameFuture := getHostname()
 
-	cache, err := NewEC2Cache(*region, *accessKey, *secretKey)
+	cache, err := NewEC2Cache(*region, *accessKey, *secretKey, *tagname)
 	if err != nil {
 		log.Fatalf("FATAL: %s", err)
 	}
