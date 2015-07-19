@@ -13,6 +13,7 @@ import (
 
 const USAGE = `Usage: aws-name-server --domain <domain>
                      [ --hostname <hostname>
+                       --wildcard
                        --aws-region us-east-1
                        --aws-access-key-id <access-key>
                        --aws-secret-access-key <secret-key> ]
@@ -41,6 +42,7 @@ Just run it as root (not recommended):
 func main() {
 	domain := flag.String("domain", "", "the domain heirarchy to serve (e.g. aws.example.com)")
 	hostname := flag.String("hostname", "", "the public hostname of this server (e.g. ec2-12-34-56-78.compute-1.amazonaws.com)")
+	wildcard := flag.Bool("wildcard", false, "alias *.<name>.<domain> to <name>.<domain>")
 	help := flag.Bool("help", false, "show help")
 
 	region := flag.String("aws-region", "us-east-1", "The AWS Region")
@@ -68,7 +70,7 @@ func main() {
 		*hostname = <-hostnameFuture
 	}
 
-	server := NewEC2Server(*domain, *hostname, cache)
+	server := NewEC2Server(*domain, *hostname, cache, *wildcard)
 
 	log.Printf("Serving %d DNS records for *.%s from %s port 53", cache.Size(), server.domain, server.hostname)
 
