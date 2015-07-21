@@ -40,7 +40,7 @@
     "GoPackage": {
       "Description": "The go package to build",
       "Type": "String",
-      "Default": "github.com/ConradIrwin/aws-name-server"
+      "Default": "github.com/vedit/aws-name-server"
     }
   },
   "Resources": {
