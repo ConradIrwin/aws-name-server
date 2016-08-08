@@ -115,7 +115,7 @@ func (s *EC2Server) Answer(msg dns.Question) (answers []dns.RR) {
 }
 
 func (s *EC2Server) Lookup(msg dns.Question) []*Record {
-	parts := strings.Split(strings.TrimSuffix(msg.Name, "."+s.domain), ".")
+	parts := strings.Split(strings.TrimSuffix(strings.ToLower(msg.Name), "."+strings.ToLower(s.domain)), ".")
 
 	nth := 0
 	tag := LOOKUP_NAME
